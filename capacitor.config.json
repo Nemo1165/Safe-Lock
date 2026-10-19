@@ -1,0 +1,7 @@
+{
+  "appId": "com.safelock.app",
+  "appName": "Safe Lock",
+  "webDir": "www",
+  "server": { "androidScheme": "http", "cleartext": true },
+  "android": { "allowMixedContent": true }
+}
