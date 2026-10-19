@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e16">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Safe Lock</title>
+<style>
+:root{--bg:#0a0e16;--card:rgba(255,255,255,.05);--line:rgba(255,255,255,.1);--text:#eaf0fb;--muted:#8d98ad;--accent:#5b9cff}
+body[data-state=step2]{--accent:#ffb84d}
+body[data-state=granted]{--accent:#2ee59d}
+body[data-state=denied],body[data-state=locked],body[data-state=alarm]{--accent:#ff4d6a}
+body[data-state=offline]{--accent:#6b7488}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;min-height:100vh;background:#0a0e16 radial-gradient(900px 480px at 50% -5%,color-mix(in srgb,var(--accent) 24%,transparent),transparent 70%);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;justify-content:center;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+.app{width:100%;max-width:420px;padding:18px 0;display:flex;flex-direction:column;gap:14px}
+header{display:flex;justify-content:space-between;align-items:center}
+.brand{font-weight:700;letter-spacing:.14em;font-size:14px}
+.pill{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:5px 12px}
+.pill i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:7px;box-shadow:0 0 8px var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:20px;text-align:center;backdrop-filter:blur(14px)}
+.ring{position:relative;width:170px;height:170px;margin:0 auto 10px}
+.ring svg{width:100%;height:100%}
+.track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:8}
+.prog{fill:none;stroke:var(--accent);stroke-width:8;stroke-linecap:round;transition:stroke-dasharray .6s,stroke .3s;filter:drop-shadow(0 0 8px var(--accent))}
+.icon{position:absolute;inset:0;display:grid;place-items:center;color:var(--accent)}
+.icon svg{display:none;width:60px;height:60px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+body[data-state=step1] .i-lock,body[data-state=step2] .i-lock,body[data-state=offline] .i-lock,body[data-state=granted] .i-open,body[data-state=denied] .i-alert,body[data-state=locked] .i-alert,body[data-state=alarm] .i-alert{display:block}
+body[data-state=locked] .ring,body[data-state=alarm] .ring{animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.05)}}
+h1{margin:6px 0 4px;font-size:26px}
+p{margin:0;color:var(--muted);font-size:14px;min-height:20px}
+.steps{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:16px;font-size:13px;color:var(--muted)}
+.step{display:flex;align-items:center;gap:8px}
+.step b{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);font-size:12px}
+.step.active{color:var(--text)}
+.step.active b{background:var(--accent);color:#0a0e16;border-color:transparent}
+.step.done b{border-color:#2ee59d;color:#2ee59d}
+.bar{width:28px;height:1px;background:var(--line)}
+.label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.dots{display:flex;justify-content:center;gap:12px;margin:12px 0 18px}
+.dots i{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--muted);transition:.15s}
+.dots i.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 10px var(--accent)}
+.dots.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pad.off .keys{opacity:.3;pointer-events:none}
+.key{height:60px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);font:500 24px inherit;display:grid;place-items:center}
+.key:active{transform:scale(.94);background:rgba(255,255,255,.14)}
+.key.empty{visibility:hidden}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
+.chip b{color:var(--text)}
+.chip b.bad{color:#ff4d6a}
+.pips{display:flex;gap:6px}
+.pips i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.14)}
+.pips i.on{background:#ff4d6a;box-shadow:0 0 8px #ff4d6a}
+</style>
+</head>
+<body data-state="offline">
+<main class="app">
+<header><div class="brand">SAFE LOCK</div><div class="pill"><i></i><span id="conn">Offline</span></div></header>
+<section class="card">
+<div class="ring">
+<svg viewBox="0 0 180 180"><circle class="track" cx="90" cy="90" r="80"/><circle class="prog" id="prog" cx="90" cy="90" r="80" transform="rotate(-90 90 90)"/></svg>
+<div class="icon">
+<svg class="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+<svg class="i-open" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>
+<svg class="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg>
+</div>
+</div>
+<h1 id="title">Not connected</h1>
+<p id="sub">Join the SafeLock WiFi network</p>
+<div class="steps"><div class="step" id="s1"><b>1</b>Phone code</div><div class="bar"></div><div class="step" id="s2"><b>2</b>Safe PIN</div></div>
+</section>
+<section class="card pad">
+<div class="label">Phone code</div>
+<div class="dots" id="dots"></div>
+<div class="keys" id="keys"></div>
+</section>
+<section class="stats">
+<div class="chip">Door <b id="door">–</b></div>
+<div class="chip">Wrong tries <div class="pips" id="pips"></div></div>
+</section>
+</main>
+<script>
+const CODE_LENGTH=6; // must match the length of PHONE_CODE in the sketch
+const APP=location.protocol==='file:'||location.hostname==='localhost';
+let BASE=APP?(localStorage.getItem('safeBase')||'http://192.168.4.1'):''; // tap the Connected/Offline pill to change it
+const $=id=>document.getElementById(id);
+const TXT={step1:['Locked','Enter your phone code to begin'],step2:['Phone verified','Now type your PIN on the safe’s keypad'],granted:['Unlocked','The latch is open, pull the door'],denied:['Access denied','That didn’t match'],locked:['Locked out','Too many wrong tries'],alarm:['Door forced open','Close the door to stop the alarm'],offline:['Not connected','Join the SafeLock WiFi network']};
+let code='',state='offline',busy=false;
+const dots=$('dots'),keys=$('keys'),pips=$('pips');
+for(let i=0;i<CODE_LENGTH;i++)dots.appendChild(document.createElement('i'));
+function drawDots(){[...dots.children].forEach((d,i)=>d.className=i<code.length?'on':'');}
+const DEL='<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="M13 9.5l5 5M18 9.5l-5 5"/></svg>';
+['1','2','3','4','5','6','7','8','9','','0','del'].forEach(k=>{
+ const b=document.createElement('button');
+ b.className='key'+(k===''?' empty':'');
+ b.innerHTML=k==='del'?DEL:k;
+ b.onclick=()=>press(k);
+ keys.appendChild(b);
+});
+function press(k){
+ if(state!=='step1'||busy||k==='')return;
+ if(k==='del')code=code.slice(0,-1);
+ else if(code.length<CODE_LENGTH)code+=k;
+ drawDots();
+ if(code.length===CODE_LENGTH)submit();
+}
+async function submit(){
+ busy=true;
+ try{
+  const r=await fetch(BASE+'/code',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'code='+encodeURIComponent(code)});
+  const j=await r.json();
+  if(j.result==='wrong'){dots.classList.add('shake');setTimeout(()=>dots.classList.remove('shake'),450);}
+ }catch(e){}
+ code='';drawDots();busy=false;
+}
+function apply(j){
+ const was=state;
+ state=j.state||'offline';
+ document.body.dataset.state=state;
+ const t=TXT[state]||TXT.offline;
+ $('title').textContent=t[0];
+ $('sub').textContent=t[1]+((state==='step2'||state==='locked')?' · '+j.left+'s':'');
+ $('conn').textContent=state==='offline'?'Offline':'Connected';
+ $('s1').className='step'+(state==='step1'?' active':(state==='step2'||state==='granted'?' done':''));
+ $('s2').className='step'+(state==='step2'?' active':(state==='granted'?' done':''));
+ const C=2*Math.PI*80;
+ let f=state==='offline'?0:1;
+ if(j.total>0)f=Math.max(0,Math.min(1,j.left/j.total));
+ $('prog').style.strokeDasharray=(C*f)+' '+C;
+ $('door').textContent=state==='offline'?'–':(j.door==='open'?'Open':'Closed');
+ $('door').className=j.door==='open'?'bad':'';
+ pips.innerHTML='';
+ for(let i=0;i<(j.max||3);i++){const p=document.createElement('i');if(i<(j.wrong||0))p.className='on';pips.appendChild(p);}
+ document.querySelector('.pad').classList.toggle('off',state!=='step1');
+ if(was!==state&&state!=='step1'){code='';drawDots();}
+}
+async function poll(){
+ const ac=new AbortController(),to=setTimeout(()=>ac.abort(),1500);
+ try{const r=await fetch(BASE+'/status',{cache:'no-store',signal:ac.signal});apply(await r.json());}
+ catch(e){apply({state:'offline'});}
+ clearTimeout(to);
+ setTimeout(poll,600);
+}
+$('conn').parentNode.onclick=()=>{if(!APP)return;const a=prompt('Safe address (shown on the safe’s screen)',BASE);if(a){BASE=a.indexOf('http')===0?a:'http://'+a;localStorage.setItem('safeBase',BASE);}};
+apply({state:'offline'});drawDots();poll();
+</script>
+</body>
+</html>
